@@ -11,9 +11,6 @@ env/
 # VSCode settings
 .vscode/
 
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints
-
 # MacOS files
 .DS_Store
 
