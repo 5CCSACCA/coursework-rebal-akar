@@ -8,3 +8,7 @@ venv/
 
 # IDE settings
 .vscode/
+
+# Ignore data files
+data/raw/
+data/processed/
