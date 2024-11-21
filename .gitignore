@@ -10,5 +10,6 @@ venv/
 .vscode/
 
 # Ignore data files
-data/raw/
-data/processed/
+#data/
+#data/raw/
+#data/processed/
