@@ -11,5 +11,5 @@ venv/
 
 # Ignore data files
 data/
-data/raw/
+data/raw_data/
 data/processed/
