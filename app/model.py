@@ -170,3 +170,45 @@ def train(model, train_loader, val_loader, optimizer, scheduler, device, epochs=
 
     mlflow.end_run()
 
+
+
+
+
+if __name__ == "__main__":
+    # Define paths
+    tokenized_data_dir = os.path.join('..', 'data', 'data_processed', 'tokenized')
+
+    # Load datasets
+    train_dataset, val_dataset, test_dataset = load_tokenized_data(tokenized_data_dir)
+
+    print(f"Training Dataset Size: {len(train_dataset)}")
+    print(f"Validation Dataset Size: {len(val_dataset)}")
+    print(f"Test Dataset Size: {len(test_dataset)}")
+
+    # Initialize tokenizer and model
+    tokenizer, model = initialize_model(device)
+
+    # Define DataLoaders
+    batch_size = 16
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    # Define training parameters
+    epochs = 3
+    learning_rate = 2e-5
+    epsilon = 1e-8
+
+    # Define optimizer and scheduler
+    optimizer = AdamW(model.parameters(), lr=learning_rate, eps=epsilon)
+    total_steps = len(train_loader) * epochs
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer,
+        num_warmup_steps=0,
+        num_training_steps=total_steps
+    )
+
+    # Start training
+    train(model, train_loader, val_loader, optimizer, scheduler, device, epochs=epochs)
+
+
