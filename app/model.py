@@ -95,3 +95,78 @@ def evaluate(model, dataloader, device):
         true_labels, predictions, average='weighted')
 
     return acc, precision, recall, f1
+
+
+def train(model, train_loader, val_loader, optimizer, scheduler, device, epochs=3):
+    mlflow.start_run()
+
+    # Log parameters
+    mlflow.log_param("epochs", epochs)
+    mlflow.log_param("learning_rate", optimizer.param_groups[0]['lr'])
+    mlflow.log_param("batch_size", train_loader.batch_size)
+
+    for epoch in range(epochs):
+        model.train()
+        total_loss = 0
+
+        print(f"\nEpoch {epoch + 1}/{epochs}")
+
+        for step, batch in enumerate(train_loader):
+            # Move batch to device
+            inputs = {key: val.to(device) for key, val in batch.items() if key != 'labels'}
+            labels = batch['labels'].to(device)
+
+            # Zero gradients
+            model.zero_grad()
+
+            # Forward pass
+            outputs = model(**inputs, labels=labels)
+            loss = outputs.loss
+            logits = outputs.logits
+
+            # Backward pass
+            loss.backward()
+            total_loss += loss.item()
+
+            # Gradient clipping 
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+            # Update parameters
+            optimizer.step()
+            scheduler.step()
+
+            if step % 100 == 0:
+                print(f"Batch {step}/{len(train_loader)}, Loss: {loss.item()}")
+
+        # Calculate average loss over the epoch
+        avg_train_loss = total_loss / len(train_loader)
+        print(f"Average Training Loss: {avg_train_loss}")
+
+        # Log average training loss
+        mlflow.log_metric("avg_train_loss", avg_train_loss, step=epoch)
+
+        # Evaluate on validation set
+        val_acc, val_precision, val_recall, val_f1 = evaluate(model, val_loader, device)
+        print(f"Validation Accuracy: {val_acc}, F1 Score: {val_f1}")
+
+        # Log validation metrics
+        mlflow.log_metric("val_accuracy", val_acc, step=epoch)
+        mlflow.log_metric("val_precision", val_precision, step=epoch)
+        mlflow.log_metric("val_recall", val_recall, step=epoch)
+        mlflow.log_metric("val_f1", val_f1, step=epoch)
+
+    # Evaluate on test set after training
+    test_acc, test_precision, test_recall, test_f1 = evaluate(model, test_loader, device)
+    print(f"\nTest Accuracy: {test_acc}, F1 Score: {test_f1}")
+
+    # Log test metrics
+    mlflow.log_metric("test_accuracy", test_acc)
+    mlflow.log_metric("test_precision", test_precision)
+    mlflow.log_metric("test_recall", test_recall)
+    mlflow.log_metric("test_f1", test_f1)
+
+    # Log the trained model
+    mlflow.pytorch.log_model(model, "distilbert_hatespeech_model")
+
+    mlflow.end_run()
+
