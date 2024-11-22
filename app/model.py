@@ -52,3 +52,15 @@ if __name__ == "__main__":
     print(f"Training Dataset Size: {len(train_dataset)}")
     print(f"Validation Dataset Size: {len(val_dataset)}")
     print(f"Test Dataset Size: {len(test_dataset)}")
+
+# Initialize the DistilBERT tokenizer
+tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
+
+# Initialize the DistilBERT model for sequence classification
+model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=3)
+
+# Move the model to GPU if available, unavailable in current computer
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+model.to(device)
+
+print(f"Using device: {device}")
