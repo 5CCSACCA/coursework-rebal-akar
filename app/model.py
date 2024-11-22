@@ -64,3 +64,34 @@ device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 model.to(device)
 
 print(f"Using device: {device}")
+
+
+
+def evaluate(model, dataloader, device):
+    model.eval()
+    predictions, true_labels = [], []
+
+    with torch.no_grad():
+        for batch in dataloader:
+            # Move batch to device
+            inputs = {key: val.to(device) for key, val in batch.items() if key != 'labels'}
+            labels = batch['labels'].to(device)
+
+            # Forward pass
+            outputs = model(**inputs)
+            logits = outputs.logits
+
+            # Get predictions
+            preds = torch.argmax(logits, dim=1).detach().cpu().numpy()
+            label_ids = labels.cpu().numpy()
+
+            # Store predictions and true labels
+            predictions.extend(preds)
+            true_labels.extend(label_ids)
+
+    # Calculate metrics
+    acc = accuracy_score(true_labels, predictions)
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        true_labels, predictions, average='weighted')
+
+    return acc, precision, recall, f1
