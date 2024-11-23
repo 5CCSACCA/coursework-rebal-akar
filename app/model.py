@@ -1,12 +1,18 @@
 import os
 import torch
 from torch.utils.data import DataLoader, Dataset
-from transformers import DistilBertForSequenceClassification, DistilBertTokenizerFast, AdamW, get_linear_schedule_with_warmup
+from transformers import (
+    DistilBertForSequenceClassification,
+    DistilBertTokenizerFast,
+    AdamW,
+    get_linear_schedule_with_warmup
+)
 import mlflow
 import mlflow.pytorch
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import random
 import numpy as np
+import argparse
 
 # Set random seeds for reproducibility
 def set_seed(seed):
@@ -18,7 +24,7 @@ def set_seed(seed):
 
 set_seed(42)
 
-# Define a custom PyTorch Dataset
+# Make custom PyTorch dataset
 class HateSpeechDataset(Dataset):
     def __init__(self, encodings, labels):
         self.encodings = encodings
@@ -34,9 +40,12 @@ class HateSpeechDataset(Dataset):
 
 # Load tokenized data
 def load_tokenized_data(tokenized_data_dir):
-    train_encodings, train_labels = torch.load(os.path.join(tokenized_data_dir, 'train.pt'))
-    val_encodings, val_labels = torch.load(os.path.join(tokenized_data_dir, 'val.pt'))
-    test_encodings, test_labels = torch.load(os.path.join(tokenized_data_dir, 'test.pt'))
+    try:
+        train_encodings, train_labels = torch.load(os.path.join(tokenized_data_dir, 'train.pt'))
+        val_encodings, val_labels = torch.load(os.path.join(tokenized_data_dir, 'val.pt'))
+        test_encodings, test_labels = torch.load(os.path.join(tokenized_data_dir, 'test.pt'))
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Tokenized data file not found: {e.filename}")
 
     train_dataset = HateSpeechDataset(train_encodings, train_labels)
     val_dataset = HateSpeechDataset(val_encodings, val_labels)
@@ -44,29 +53,22 @@ def load_tokenized_data(tokenized_data_dir):
 
     return train_dataset, val_dataset, test_dataset
 
-if __name__ == "__main__":
-
-    tokenized_data_dir = os.path.join('..', 'data', 'data_processed', 'tokenized_data')
-    train_dataset, val_dataset, test_dataset = load_tokenized_data(tokenized_data_dir)
+# Initialize DistilBERT model and tokenizer
+def initialize_model(device):
+    # Initialize the DistilBERT tokenizer
+    tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
     
-    print(f"Training Dataset Size: {len(train_dataset)}")
-    print(f"Validation Dataset Size: {len(val_dataset)}")
-    print(f"Test Dataset Size: {len(test_dataset)}")
+    # Initialize the DistilBERT model for sequence classification
+    model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=3)
+    
+    # Move the model to the specified device
+    model.to(device)
+    
+    print(f"Using device: {device}")
+    
+    return tokenizer, model
 
-# Initialize the DistilBERT tokenizer
-tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
-
-# Initialize the DistilBERT model for sequence classification
-model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=3)
-
-# Move the model to GPU if available, unavailable in current computer
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-model.to(device)
-
-print(f"Using device: {device}")
-
-
-
+# Evaluation function
 def evaluate(model, dataloader, device):
     model.eval()
     predictions, true_labels = [], []
@@ -93,90 +95,90 @@ def evaluate(model, dataloader, device):
     acc = accuracy_score(true_labels, predictions)
     precision, recall, f1, _ = precision_recall_fscore_support(
         true_labels, predictions, average='weighted')
-
+    
     return acc, precision, recall, f1
 
+# Training functions, and MLflow logs
+def train(model, train_loader, val_loader, optimizer, scheduler, device, epochs=3, accumulation_steps=4):
+    with mlflow.start_run():
+        # Log parameters
+        mlflow.log_param("epochs", epochs)
+        mlflow.log_param("learning_rate", optimizer.param_groups[0]['lr'])
+        mlflow.log_param("batch_size", train_loader.batch_size)
+        mlflow.log_param("accumulation_steps", accumulation_steps)
 
-def train(model, train_loader, val_loader, optimizer, scheduler, device, epochs=3):
-    mlflow.start_run()
+        for epoch in range(epochs):
+            model.train()
+            total_loss = 0
+            optimizer.zero_grad()  # Initialize gradients
 
-    # Log parameters
-    mlflow.log_param("epochs", epochs)
-    mlflow.log_param("learning_rate", optimizer.param_groups[0]['lr'])
-    mlflow.log_param("batch_size", train_loader.batch_size)
+            print(f"\nEpoch {epoch + 1}/{epochs}")
 
-    for epoch in range(epochs):
-        model.train()
-        total_loss = 0
+            for step, batch in enumerate(train_loader):
+                # Move batch to device
+                inputs = {key: val.to(device) for key, val in batch.items() if key != 'labels'}
+                labels = batch['labels'].to(device)
 
-        print(f"\nEpoch {epoch + 1}/{epochs}")
+                # Forward pass
+                outputs = model(**inputs, labels=labels)
+                loss = outputs.loss / accumulation_steps  # Normalize loss for accumulation
+                logits = outputs.logits
 
-        for step, batch in enumerate(train_loader):
-            # Move batch to device
-            inputs = {key: val.to(device) for key, val in batch.items() if key != 'labels'}
-            labels = batch['labels'].to(device)
+                # Backward pass
+                loss.backward()
+                total_loss += loss.item()
 
-            # Zero gradients
-            model.zero_grad()
+                # Gradient clipping
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-            # Forward pass
-            outputs = model(**inputs, labels=labels)
-            loss = outputs.loss
-            logits = outputs.logits
+                # Update parameters every 'accumulation_steps'
+                if (step + 1) % accumulation_steps == 0 or (step + 1) == len(train_loader):
+                    optimizer.step()
+                    scheduler.step()
+                    optimizer.zero_grad()  # Reset gradients after update
 
-            # Backward pass
-            loss.backward()
-            total_loss += loss.item()
+                if step % 100 == 0:
+                    print(f"Batch {step}/{len(train_loader)}, Loss: {loss.item() * accumulation_steps}")
 
-            # Gradient clipping 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            # Calculate average loss over the epoch
+            avg_train_loss = total_loss / len(train_loader)
+            print(f"Average Training Loss: {avg_train_loss}")
 
-            # Update parameters
-            optimizer.step()
-            scheduler.step()
+            # Log average training loss
+            mlflow.log_metric("avg_train_loss", avg_train_loss, step=epoch)
 
-            if step % 100 == 0:
-                print(f"Batch {step}/{len(train_loader)}, Loss: {loss.item()}")
+            # Evaluate on validation set
+            val_acc, val_precision, val_recall, val_f1 = evaluate(model, val_loader, device)
+            print(f"Validation Accuracy: {val_acc}, F1 Score: {val_f1}")
 
-        # Calculate average loss over the epoch
-        avg_train_loss = total_loss / len(train_loader)
-        print(f"Average Training Loss: {avg_train_loss}")
+            # Log validation metrics
+            mlflow.log_metric("val_accuracy", val_acc, step=epoch)
+            mlflow.log_metric("val_precision", val_precision, step=epoch)
+            mlflow.log_metric("val_recall", val_recall, step=epoch)
+            mlflow.log_metric("val_f1", val_f1, step=epoch)
 
-        # Log average training loss
-        mlflow.log_metric("avg_train_loss", avg_train_loss, step=epoch)
+        # Evaluate on test set after training
+        test_acc, test_precision, test_recall, test_f1 = evaluate(model, test_loader, device)
+        print(f"\nTest Accuracy: {test_acc}, F1 Score: {test_f1}")
 
-        # Evaluate on validation set
-        val_acc, val_precision, val_recall, val_f1 = evaluate(model, val_loader, device)
-        print(f"Validation Accuracy: {val_acc}, F1 Score: {val_f1}")
+        # Log test metrics
+        mlflow.log_metric("test_accuracy", test_acc)
+        mlflow.log_metric("test_precision", test_precision)
+        mlflow.log_metric("test_recall", test_recall)
+        mlflow.log_metric("test_f1", test_f1)
 
-        # Log validation metrics
-        mlflow.log_metric("val_accuracy", val_acc, step=epoch)
-        mlflow.log_metric("val_precision", val_precision, step=epoch)
-        mlflow.log_metric("val_recall", val_recall, step=epoch)
-        mlflow.log_metric("val_f1", val_f1, step=epoch)
-
-    # Evaluate on test set after training
-    test_acc, test_precision, test_recall, test_f1 = evaluate(model, test_loader, device)
-    print(f"\nTest Accuracy: {test_acc}, F1 Score: {test_f1}")
-
-    # Log test metrics
-    mlflow.log_metric("test_accuracy", test_acc)
-    mlflow.log_metric("test_precision", test_precision)
-    mlflow.log_metric("test_recall", test_recall)
-    mlflow.log_metric("test_f1", test_f1)
-
-    # Log the trained model
-    mlflow.pytorch.log_model(model, "distilbert_hatespeech_model")
-
-    mlflow.end_run()
-
-
-
-
+        # Log the trained model
+        mlflow.pytorch.log_model(model, "distilbert_hatespeech_model")
 
 if __name__ == "__main__":
     # Define paths
     tokenized_data_dir = os.path.join('..', 'data', 'data_processed', 'tokenized')
+
+    # Check if tokenized_data_dir exists
+    if not os.path.exists(tokenized_data_dir):
+        raise FileNotFoundError(f"Tokenized data directory not found: {tokenized_data_dir}")
+    else:
+        print(f"Found tokenized data directory: {tokenized_data_dir}")
 
     # Load datasets
     train_dataset, val_dataset, test_dataset = load_tokenized_data(tokenized_data_dir)
@@ -186,10 +188,11 @@ if __name__ == "__main__":
     print(f"Test Dataset Size: {len(test_dataset)}")
 
     # Initialize tokenizer and model
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     tokenizer, model = initialize_model(device)
 
     # Define DataLoaders
-    batch_size = 16
+    batch_size = 4
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
@@ -198,10 +201,11 @@ if __name__ == "__main__":
     epochs = 3
     learning_rate = 2e-5
     epsilon = 1e-8
+    accumulation_steps = 4  # New parameter for gradient accumulation
 
     # Define optimizer and scheduler
     optimizer = AdamW(model.parameters(), lr=learning_rate, eps=epsilon)
-    total_steps = len(train_loader) * epochs
+    total_steps = len(train_loader) // accumulation_steps * epochs
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
         num_warmup_steps=0,
@@ -209,6 +213,4 @@ if __name__ == "__main__":
     )
 
     # Start training
-    train(model, train_loader, val_loader, optimizer, scheduler, device, epochs=epochs)
-
-
+    train(model, train_loader, val_loader, optimizer, scheduler, device, epochs=epochs, accumulation_steps=accumulation_steps)
