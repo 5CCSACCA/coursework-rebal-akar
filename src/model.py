@@ -42,7 +42,14 @@ class HateSpeechDataset(Dataset):
         return len(self.labels)
 
 # Load tokenized data from Azure ML Dataset
-def load_tokenized_data(tokenized_data_dir):
+def load_tokenized_data():
+    run = Run.get_context()
+    ws = run.experiment.workspace
+
+    dataset = Dataset.get_by_name(ws, name='tokenized_dataset')
+    local_data_path = dataset.download(target_path='data', overwrite=True)
+    tokenized_data_dir = os.path.join(local_data_path[0], 'tokenized')
+
     try:
         train_encodings, train_labels = torch.load(os.path.join(tokenized_data_dir, 'train.pt'))
         val_encodings, val_labels = torch.load(os.path.join(tokenized_data_dir, 'val.pt'))
@@ -191,8 +198,7 @@ if __name__ == "__main__":
 
 
     # Load datasets
-    tokenized_data_dir = os.path.join('tokenized')
-    train_dataset, val_dataset, test_dataset = load_tokenized_data(tokenized_data_dir)
+    train_dataset, val_dataset, test_dataset = load_tokenized_data()
     print(f"Training Dataset Size: {len(train_dataset)}")
     print(f"Validation Dataset Size: {len(val_dataset)}")
     print(f"Test Dataset Size: {len(test_dataset)}")
