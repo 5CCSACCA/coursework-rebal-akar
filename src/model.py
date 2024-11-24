@@ -4,9 +4,9 @@ from torch.utils.data import DataLoader, Dataset as TorchDataset
 from transformers import (
     DistilBertForSequenceClassification,
     DistilBertTokenizerFast,
-    AdamW,
     get_linear_schedule_with_warmup
 )
+from torch.optim import AdamW
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score
 import random
 import numpy as np
@@ -158,12 +158,14 @@ def train_and_evaluate(args, train_dataset, val_dataset, test_dataset, patience=
             scaler.scale(loss).backward()
             total_loss += loss.item()
 
-            # Gradient clipping
-            scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            
 
             # Update parameters every 'accumulation_steps' batches
             if (step + 1) % args.accumulation_steps == 0 or (step + 1) == len(train_loader):
+                # Gradient clipping
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                
                 scaler.step(optimizer)
                 scaler.update()
                 scheduler.step()
@@ -228,8 +230,6 @@ def train_and_evaluate(args, train_dataset, val_dataset, test_dataset, patience=
     # Log the model to MLflow
     mlflow.pytorch.log_model(model, artifact_path="model")
 
-    # End MLflow run
-    mlflow.end_run()
 
 # Main script
 if __name__ == "__main__":
@@ -247,9 +247,9 @@ if __name__ == "__main__":
     print(f"Test Dataset Size: {len(test_dataset)}")
 
     # Define hyperparameter grid
-    learning_rates = [1e-5, 2e-5, 3e-5]
+    learning_rates = [1e-5, 2e-5, 3e-5, 4e-5]
     batch_sizes = [8, 16]
-    epochs_list = [3, 5]
+    epochs_list = [3, 5, 8,10]
     accumulation_steps_list = [1, 2]
 
     # Loop over hyperparameter combinations
