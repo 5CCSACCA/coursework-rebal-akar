@@ -15,6 +15,7 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import random
 import numpy as np
 import argparse
+from azureml.core import Run, Dataset
 
 # Set random seeds for reproducibility
 def set_seed(seed):
@@ -40,8 +41,20 @@ class HateSpeechDataset(Dataset):
     def __len__(self):
         return len(self.labels)
 
-# Load tokenized data
-def load_tokenized_data(tokenized_data_dir):
+# Load tokenized data from Azure ML Dataset
+def load_tokenized_data():
+    run = Run.get_context()
+    ws = run.experiment.workspace
+    
+    # Get the registered dataset
+    dataset = Dataset.get_by_name(ws, name='tokenized')
+    
+    # Download the dataset to a local directory
+    local_data_path = dataset.download(target_path='data', overwrite=True)
+    
+    # Assuming the downloaded data is in 'data/tokenized'
+    tokenized_data_dir = os.path.join(local_data_path[0], 'tokenized')
+    
     try:
         train_encodings, train_labels = torch.load(os.path.join(tokenized_data_dir, 'train.pt'))
         val_encodings, val_labels = torch.load(os.path.join(tokenized_data_dir, 'val.pt'))
@@ -188,17 +201,9 @@ if __name__ == "__main__":
 
     mlflow.set_tracking_uri(os.environ['MLFLOW_TRACKING_URI'])
 
-    # Define paths
-    tokenized_data_dir = os.path.join('..', 'data', 'tokenized')
-
-    # Verify data directory
-    if not os.path.exists(tokenized_data_dir):
-        raise FileNotFoundError(f"Tokenized data directory not found: {tokenized_data_dir}")
-    else:
-        print(f"Found tokenized data directory: {tokenized_data_dir}")
 
     # Load datasets
-    train_dataset, val_dataset, test_dataset = load_tokenized_data(tokenized_data_dir)
+    train_dataset, val_dataset, test_dataset = load_tokenized_data()
     print(f"Training Dataset Size: {len(train_dataset)}")
     print(f"Validation Dataset Size: {len(val_dataset)}")
     print(f"Test Dataset Size: {len(test_dataset)}")
@@ -210,10 +215,15 @@ if __name__ == "__main__":
     # Configure PyTorch for multi-core processing
     torch.set_num_threads(4)
 
+    # Define DataLoaders with DistributedSampler
+    train_sampler = DistributedSampler(train_dataset)
+    val_sampler = DistributedSampler(val_dataset, shuffle=False)
+    test_sampler = DistributedSampler(test_dataset, shuffle=False)
+
     # Define DataLoaders
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2)
 
     # Define optimizer and scheduler
     optimizer = AdamW(model.parameters(), lr=args.learning_rate, eps=1e-8)

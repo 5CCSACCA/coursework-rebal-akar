@@ -22,7 +22,7 @@ try:
     print(f'Found existing compute target: {compute_name}')
 except ComputeTargetException:
     print(f'Creating new compute target: {compute_name}')
-    compute_config = AmlCompute.provisioning_configuration(vm_size='Standard_E4ds_v4', max_nodes=86)
+    compute_config = AmlCompute.provisioning_configuration(vm_size='Standard_E4ds_v4', max_nodes=5)
     compute_target = ComputeTarget.create(ws, compute_name, compute_config)
     compute_target.wait_for_completion(show_output=True)
 
