@@ -110,8 +110,8 @@ def evaluate(model, dataloader, device):
 
     return acc, precision, recall, f1, roc_auc
 
-# Training and Evaluation Function
-def train_and_evaluate(args, train_dataset, val_dataset, test_dataset):
+# Training and Evaluation Function with Early Stopping
+def train_and_evaluate(args, train_dataset, val_dataset, test_dataset, patience=3):
     # Create DataLoaders
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
@@ -135,6 +135,7 @@ def train_and_evaluate(args, train_dataset, val_dataset, test_dataset):
 
     best_f1 = 0.0
     best_model_state = None
+    patience_counter = 0  # Initialize patience counter
 
     for epoch in range(args.epochs):
         model.train()
@@ -190,13 +191,19 @@ def train_and_evaluate(args, train_dataset, val_dataset, test_dataset):
         if val_roc_auc is not None:
             mlflow.log_metric("val_roc_auc", val_roc_auc, step=epoch)
 
-        # Save the best model
+        # Early Stopping Logic
         if val_f1 > best_f1:
             best_f1 = val_f1
             best_model_state = model.state_dict()
             print(f"New best model found at epoch {epoch + 1} with F1 Score: {best_f1:.4f}")
-            # Save the best model temporarily
-            torch.save(best_model_state, "best_model.pt")
+            torch.save(best_model_state, "best_model.pt")  # Save the best model
+            patience_counter = 0  # Reset patience counter
+        else:
+            patience_counter += 1
+            print(f"No improvement in F1 score for {patience_counter} epoch(s).")
+            if patience_counter >= patience:
+                print("Early stopping triggered.")
+                break  # Exit the training loop
 
     # Load the best model state
     model.load_state_dict(best_model_state)
@@ -263,5 +270,5 @@ if __name__ == "__main__":
 
             print(f"\nStarting run with lr={lr}, batch_size={bs}, epochs={epochs}, accumulation_steps={accum_steps}")
 
-            # Call the training and evaluation function
-            train_and_evaluate(args, train_dataset, val_dataset, test_dataset)
+            # Call the training and evaluation function with early stopping
+            train_and_evaluate(args, train_dataset, val_dataset, test_dataset, patience=3)
