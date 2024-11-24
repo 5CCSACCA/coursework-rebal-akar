@@ -34,7 +34,7 @@ mlflow_tracking_uri = ws.get_mlflow_tracking_uri()
 
 # Define PyTorch distributed configuration with corrected parameter names
 pytorch_config = PyTorchConfiguration(
-    node_count=86,                  # Number of nodes
+    node_count=5,                  # Number of nodes
 )
 
 
