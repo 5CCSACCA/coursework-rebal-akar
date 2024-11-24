@@ -45,10 +45,13 @@ class HateSpeechDataset(Dataset):
 def load_tokenized_data():
     run = Run.get_context()
     ws = run.experiment.workspace
+    
+    
+    tokenized_dataset_path = os.getenv('AZUREML_DATAREFERENCE_TOKENIZED_DATASET')  # Added
+    if tokenized_dataset_path is None:  # Added
+        raise ValueError("AZUREML_DATAREFERENCE_TOKENIZED_DATASET environment variable not set")  # Added
+    tokenized_data_dir = os.path.join(tokenized_dataset_path, 'tokenized')  # Changed
 
-    dataset = Dataset.get_by_name(ws, name='tokenized_dataset')
-    local_data_path = dataset.download(target_path='data', overwrite=True)
-    tokenized_data_dir = os.path.join(local_data_path[0], 'tokenized')
 
     try:
         train_encodings, train_labels = torch.load(os.path.join(tokenized_data_dir, 'train.pt'))
@@ -191,11 +194,13 @@ if __name__ == "__main__":
     # Configure MLflow
     os.environ['MLFLOW_TRACKING_URI'] = mlflow_tracking_uri
     os.environ['MLFLOW_S3_ENDPOINT_URL'] = mlflow_s3_endpoint_url
-    os.environ['AWS_ACCESS_KEY_ID'] = storage_account_key
-    os.environ['AWS_SECRET_ACCESS_KEY'] = storage_account_conn_str
+
+    os.environ['AZURE_STORAGE_CONNECTION_STRING'] = storage_account_conn_str 
 
     mlflow.set_tracking_uri(os.environ['MLFLOW_TRACKING_URI'])
+    mlflow.set_experiment('distilbert-hatespeech-distributed')
 
+    os.environ['MLFLOW_DEFAULT_ARTIFACT_ROOT'] = 'wasbs://mlflow-artefacts@cloudcomputing8991014366.blob.core.windows.net/mlflow'  # Added - Replace <container> and <storage_account> with your values
 
     # Load datasets
     train_dataset, val_dataset, test_dataset = load_tokenized_data()

@@ -2,6 +2,7 @@ from azureml.core import Workspace, Experiment, ScriptRunConfig, Environment
 from azureml.core.compute import ComputeTarget, AmlCompute
 from azureml.core.compute_target import ComputeTargetException
 from azureml.core.runconfig import PyTorchConfiguration
+from azureml.core import Run, Dataset
 import os
 
 # Optionally load environment variables from a .env file
@@ -37,7 +38,7 @@ pytorch_config = PyTorchConfiguration(
     node_count=5,                  # Number of nodes
 )
 
-
+dataset = Dataset.get_by_name(ws, 'tokenized_dataset')  
 
 # Define ScriptRunConfig with distributed configuration
 src = ScriptRunConfig(
@@ -51,16 +52,17 @@ src = ScriptRunConfig(
         '--batch_size', '8',
         '--accumulation_steps', '2'
     ],
-    distributed_job_config=pytorch_config  # Assign the PyTorch configuration
+    distributed_job_config=pytorch_config,  # Assign the PyTorch configuration
+    inputs=[dataset.as_named_input('tokenized_dataset').as_mount()]  
 )
 
 
 
 src.run_config.environment_variables = {
-    'STORAGE_ACCOUNT_KEY': 'Z847O5qPcdxoV4JznEmYRKcZ72LAAP9Yz6zGAPDS6qjD8aDBM1IqaznDQMyXSsTVvZP/CGO/upAF+AStWqlXJg==',  # Replace with your actual key
-    'STORAGE_ACCOUNT_CONNECTION_STRING': 'DefaultEndpointsProtocol=https;AccountName=cloudcomputing8991014366;AccountKey=Z847O5qPcdxoV4JznEmYRKcZ72LAAP9Yz6zGAPDS6qjD8aDBM1IqaznDQMyXSsTVvZP/CGO/upAF+AStWqlXJg==;EndpointSuffix=core.windows.netyour_storage_account_connection_string',  # Replace with your actual connection string
+    'STORAGE_ACCOUNT_KEY': 'Z847O5qPcdxoV4JznEmYRKcZ72LAAP9Yz6zGAPDS6qjD8aDBM1IqaznDQMyXSsTVvZP/CGO/upAF+AStWqlXJg==',
+    'STORAGE_ACCOUNT_CONNECTION_STRING': 'DefaultEndpointsProtocol=https;AccountName=cloudcomputing8991014366;AccountKey=Z847O5qPcdxoV4JznEmYRKcZ72LAAP9Yz6zGAPDS6qjD8aDBM1IqaznDQMyXSsTVvZP/CGO/upAF+AStWqlXJg==;EndpointSuffix=core.windows.net',
     'MLFLOW_TRACKING_URI': mlflow_tracking_uri,
-    'MLFLOW_S3_ENDPOINT_URL': 'https://cloudcomputing8991014366.blob.core.windows.net/'  # Replace with your Blob Storage endpoint
+    'MLFLOW_S3_ENDPOINT_URL': 'https://cloudcomputing8991014366.blob.core.windows.net/'
 
 }
 
