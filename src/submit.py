@@ -40,13 +40,6 @@ pytorch_config = PyTorchConfiguration(
 
 dataset = Dataset.get_by_name(ws, 'tokenized_dataset')  
 
-run_config = RunConfiguration()
-run_config.target = compute_target
-run_config.environment = env
-run_config.data_references = {
-    'tokenized_dataset': dataset.as_mount()  # Mount the dataset
-}
-
 # Define ScriptRunConfig with distributed configuration
 src = ScriptRunConfig(
     source_directory='.',  # Directory containing model.py and other files
