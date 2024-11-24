@@ -47,7 +47,7 @@ def load_tokenized_data():
     ws = run.experiment.workspace
     
     
-    tokenized_dataset_path = os.getenv('AZUREML_DATAREFERENCE_TOKENIZED_DATASET')  # Added
+    tokenized_dataset_path = os.getenv('AZUREML_DATAREFERENCE_tokenized_dataset')  # Added
     if tokenized_dataset_path is None:  # Added
         raise ValueError("AZUREML_DATAREFERENCE_TOKENIZED_DATASET environment variable not set")  # Added
     tokenized_data_dir = os.path.join(tokenized_dataset_path, 'tokenized')  # Changed

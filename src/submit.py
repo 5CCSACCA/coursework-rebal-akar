@@ -40,6 +40,13 @@ pytorch_config = PyTorchConfiguration(
 
 dataset = Dataset.get_by_name(ws, 'tokenized_dataset')  
 
+run_config = RunConfiguration()
+run_config.target = compute_target
+run_config.environment = env
+run_config.data_references = {
+    'tokenized_dataset': dataset.as_mount()  # Mount the dataset
+}
+
 # Define ScriptRunConfig with distributed configuration
 src = ScriptRunConfig(
     source_directory='.',  # Directory containing model.py and other files
@@ -52,10 +59,10 @@ src = ScriptRunConfig(
         '--batch_size', '8',
         '--accumulation_steps', '2'
     ],
-    distributed_job_config=pytorch_config,  # Assign the PyTorch configuration
-    inputs=[dataset.as_named_input('tokenized_dataset').as_mount()]  
+    distributed_job_config=pytorch_config # Assign the PyTorch configuration
 )
 
+src.run_config.data = {'tokenized_dataset': dataset}  # Added
 
 
 src.run_config.environment_variables = {
