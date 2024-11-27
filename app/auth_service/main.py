@@ -3,6 +3,8 @@ from fastapi import FastAPI
 from routers import users
 from database.mongodb import connect_to_mongo, close_mongo_connection
 from fastapi.middleware.cors import CORSMiddleware  
+from routers import users, health
+
 app = FastAPI(
     title="Authentication Service",
     description="Handles user registration and authentication.",
@@ -17,10 +19,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+#Come back to this
 
 
 app.add_event_handler("startup", connect_to_mongo)
 app.add_event_handler("shutdown", close_mongo_connection)
 
 app.include_router(users.router, tags=["Users"], prefix="/users")
+app.include_router(health.router, tags=["Health"])
