@@ -1,4 +1,4 @@
-# prediction_service/db/mongodb.py
+# prediction_service/database/mongodb.py
 import motor.motor_asyncio
 from core.config import settings
 
