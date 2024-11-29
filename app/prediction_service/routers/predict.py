@@ -19,7 +19,55 @@ router = APIRouter()
 
 MAX_PREDICTIONS_PER_USER = 100  # Maximum predictions allowed per user
 
-@router.post("/predict", response_model=BatchPredictionResponse)
+@router.post(
+    "/predict",
+    response_model=BatchPredictionResponse,
+    summary="Make predictions on input texts",
+    description="""
+    Analyze a list of input texts to detect hate speech, offensive language, or neutral content.
+
+    - Maximum of 100 input texts per request.
+
+    -Also returns the predicitons of hatespeech texts below the predictions 
+
+    **Example Request:**
+
+    ```json
+    {
+      "input_texts": [
+        "I hate this!",
+        "This is great."
+      ]
+    }
+    ```
+
+    **Example Response:**
+
+    ```json
+    {
+      "predictions": [
+        {
+          "prediction": 2,
+          "prediction_label": "Hate",
+          "probabilities": [0.05, 0.10, 0.85]
+        },
+        {
+          "prediction": 0,
+          "prediction_label": "Neutral",
+          "probabilities": [0.90, 0.05, 0.05]
+        }
+      ],
+      "hate_offensive_tweets": [
+        {
+          "prediction": 2,
+          "prediction_label": "Hate",
+          "probabilities": [0.05, 0.10, 0.85]
+        }
+      ]
+    }
+    ```
+    """
+)
 async def predict(
     request: PredictionRequest, current_user: dict = Depends(get_current_user)
 ):
@@ -87,7 +135,19 @@ async def predict(
     return response
 
 
-@router.get("/predictions", response_model=List[PredictionOut])
+@router.get(
+    "/predictions",
+    response_model=List[PredictionOut],
+    summary="Retrieve user predictions",
+    description="""
+    Fetch a list of past predictions made by the authenticated user.
+
+    **Parameters:**
+        Specify min and max range from your predictions
+    - `skip` : min range, e.g 2 would fetch the 3rd prediciton and above
+    - `limit` : Specify the number of predictions to fetch, starting from after the skip
+    """
+)
 async def get_user_predictions(
     skip: int = 0,
     limit: int = 10,
