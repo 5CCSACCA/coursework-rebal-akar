@@ -10,7 +10,16 @@ from database.mongodb import mongodb
 
 router = APIRouter()
 
-@router.post("/register", response_model=UserOut)
+@router.post(
+    "/register",
+    response_model=UserOut,
+    summary="Register a new user",
+    description="""
+    Register a new user by providing a unique username, email and a password.
+
+    **Note:** The password must be at least 8 characters long and include an uppercase letter, lowercase letter, a digit and a special character.
+    """
+)
 async def register(user: UserCreate):
     existing_user = await mongodb.db.users.find_one({"$or": [{"username": user.username}, {"email": user.email}]})
     if existing_user:
@@ -26,13 +35,24 @@ async def register(user: UserCreate):
     user_out = UserOut(**user_dict, id=str(result.inserted_id))
     return user_out
 
-# auth_service/routers/users.py
 from datetime import datetime, timedelta
 
 MAX_FAILED_ATTEMPTS = 10
 LOCKOUT_DURATION = timedelta(minutes=15)
 
-@router.post("/login", response_model=Token)
+@router.post(
+    "/login",
+    response_model=Token,
+    summary="User login",
+    description="""
+    Authenticate your user by providing a valid username and password.
+
+    Upon successful authentication, returns a JWT access token that must be included in the `Authorization` header for protected endpoints.
+
+    The JWT access token will be given to you, copy paste the bearer  ... token to authorize in prediction service
+
+    """
+)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user = await mongodb.db.users.find_one({"username": form_data.username})
     print(f"Received username: {form_data.username!r} (type: {type(form_data.username)})")
