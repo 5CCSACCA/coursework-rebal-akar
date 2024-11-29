@@ -1,15 +1,17 @@
 # schemas/user.py
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, validator, Field
 import re
 
 class UserBase(BaseModel):
-    username: str
-    email: EmailStr
+    username: str = Field(..., example="johndoe")
+    email: EmailStr = Field(..., example="johndoe@example.com")
 
 class UserCreate(UserBase):
-    password: str
+    password: str =Field(..., 
+                          example="Password123!",
+                          description="Password must be at least 8 characters long and include uppercase letters, lowercase letters, digits, and special characters.")
 
     @validator('password')
     def password_complexity(cls, v):
@@ -40,8 +42,8 @@ class UserOut(UserBase):
     updated_at: datetime
 
 class Token(BaseModel):
-    access_token: str
-    token_type: str
+    access_token: str = Field(..., example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
+    token_type: str = Field(..., example="bearer", description="Type of the token, typically 'bearer'.")
 
 class TokenData(BaseModel):
     username: Optional[str] = None # double check this
