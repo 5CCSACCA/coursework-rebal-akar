@@ -7,7 +7,7 @@ from schemas.user import TokenData
 from database.mongodb import mongodb
 
 # Update tokenUrl to point to the auth_service's login endpoint
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://auth-service:8000/users/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost/auth/users/login")
 
 
 SECRET_KEY = settings.SECRET_KEY

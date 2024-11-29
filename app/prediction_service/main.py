@@ -9,11 +9,14 @@ app = FastAPI(
     title="Prediction Service",
     description="Handles predictions using the machine learning model.",
     version="1.0.0",
+    openapi_url="/predict/openapi.json",
+    docs_url="/predict/docs",
+    redoc_url=None,
 )
 
 app.add_event_handler("startup", connect_to_mongo)
 app.add_event_handler("shutdown", close_mongo_connection)
 
-app.include_router(predict.router, tags=["Predictions"], prefix="/predict")
+app.include_router(predict.router, tags=["Predictions"], prefix="/predict/predict")
 #app.include_router(health.router, tags=["Health"])
 
