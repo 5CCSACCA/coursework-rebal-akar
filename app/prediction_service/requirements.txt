@@ -14,5 +14,8 @@ pymongo == 4.4.0
 numpy==1.22.3
 pandas==1.4.2
 scikit-learn==1.0.2
-prometheus_client==0.15.0
+prometheus_client
+httpx
+pytest-cov
+pytest-asyncio
 
