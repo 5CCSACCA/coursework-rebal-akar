@@ -3,6 +3,10 @@ kind: Service
 metadata:
   name: auth-service
   namespace: hatespeech
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/auth/metrics"
+    prometheus.io/port: "8000"
 spec:
   selector:
     app: auth-service
