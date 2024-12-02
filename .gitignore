@@ -10,11 +10,10 @@ venv/
 .vscode/
 
 # Ignore data files
-data/
+
 data/raw_data/
 data/processed/
 
 mlruns/
 
-app/prediction_service/ml_model/model
 
