@@ -12,6 +12,7 @@ venv/
 # Ignore data files
 
 data/raw_data/
+data/raw_data/processed
 data/processed/
 data/tokenized/
 
