@@ -12,6 +12,10 @@ spec:
     metadata:
       labels:
         app: auth-service
+      annotations:
+        prometheus.io/scrape: "true"       
+        prometheus.io/path: "/auth/metrics"      
+        prometheus.io/port: "8000"  
     spec:
       containers:
       - name: auth-service
@@ -41,3 +45,15 @@ spec:
           limits:
             cpu: "700m"
             memory: "512Mi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20

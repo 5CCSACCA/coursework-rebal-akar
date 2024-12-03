@@ -3,6 +3,10 @@ kind: Service
 metadata:
   name: prediction-service
   namespace: hatespeech
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/predict/metrics"
+    prometheus.io/port: "8000"
 spec:
   selector:
     app: prediction-service

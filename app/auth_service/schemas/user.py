@@ -46,5 +46,5 @@ class Token(BaseModel):
     token_type: str = Field(..., example="bearer", description="Type of the token, typically 'bearer'.")
 
 class TokenData(BaseModel):
-    username: Optional[str] = None # double check this
+    username: Optional[str] = None 
 

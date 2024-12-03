@@ -7,7 +7,8 @@ pydantic==1.10.2
 python-dotenv==1.0.0
 pydantic[email]
 python-multipart
-pytest==6.2.5
+pytest
+pytest-asyncio
 httpx
-pytest-asyncio==0.15.1
-prometheus_client==0.15.0
+pytest-cov
+prometheus_client

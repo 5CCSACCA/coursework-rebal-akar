@@ -1,9 +1,11 @@
 #ml_model/model.py
 import torch
+import logging
 from transformers import DistilBertForSequenceClassification, DistilBertTokenizerFast
 from typing import List, Dict
 from pathlib import Path
 
+logger = logging.getLogger("prediction_service.ml_model.model")
 current_dir = Path(__file__).parent
 # Load model and tokenizer once at startup
 model_path = current_dir / 'model' / 'data' / 'model.pth'
@@ -23,15 +25,21 @@ label_mapping = {
 }
 
 async def predict_text(texts: List[str]) -> List[Dict]:
+    
     inputs = tokenizer(texts, return_tensors="pt", truncation=True, padding=True)
     inputs = {k: v.to(device) for k, v in inputs.items()}
-    with torch.no_grad():
-        outputs = model(**inputs)
-        logits = outputs.logits
-        probabilities = torch.softmax(logits, dim=1)
-        predicted_classes = torch.argmax(probabilities, dim=1).cpu().numpy()
-        probabilities = probabilities.cpu().numpy()
-
+    try:
+        with torch.no_grad():
+            outputs = model(**inputs)
+            logits = outputs.logits
+            probabilities = torch.softmax(logits, dim=1)
+            predicted_classes = torch.argmax(probabilities, dim=1).cpu().numpy()
+            probabilities = probabilities.cpu().numpy()
+        logger.info("Model prediction completed successfully.")
+    except Exception as e:
+        logger.exception(f"Error during model prediction: {e}")    
+        raise e
+       
     # Prepare the results
     results = []
     for idx in range(len(texts)):
