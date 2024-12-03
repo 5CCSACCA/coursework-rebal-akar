@@ -36,6 +36,7 @@ async def register(user: UserCreate):
         if existing_user:
             logger.warning(f"Registration failed: Username or email already registered ({user.username}, {user.email})")
             raise HTTPException(status_code=400, detail="Username or email already registered")
+        hashed_password = get_password_hash(user.password)
         user_dict = user.dict()
         user_dict["hashed_password"] = hashed_password
         user_dict.pop("password")

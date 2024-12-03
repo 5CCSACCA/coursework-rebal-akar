@@ -1,6 +1,6 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
-from main import app  # Ensure this imports your FastAPI app correctly
+from main import app 
 from database.mongodb import connect_to_mongo, close_mongo_connection, mongodb
 from core.config import settings
 import motor.motor_asyncio
@@ -63,7 +63,7 @@ async def create_user(async_client):
         ]
     })
 
-    response = await async_client.post("/users/register", json=user_data)
+    response = await async_client.post("/auth/users/register", json=user_data)
     assert response.status_code == 201, f"Failed to create user in setup. Response: {response.text}"
     return response.json()
 

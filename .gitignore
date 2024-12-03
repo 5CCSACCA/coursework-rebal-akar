@@ -18,5 +18,5 @@ data/tokenized/
 mlruns/
 
 
-.coverage
+app/auth_service/.coverage
 load-test.js

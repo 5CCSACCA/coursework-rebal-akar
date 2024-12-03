@@ -10,7 +10,7 @@ async def test_register_success(async_client):
         "email": "newuser@example.com",
         "password": "Password123!"
     }
-    response = await async_client.post("/users/register", json=user_data)
+    response = await async_client.post("/auth/users/register", json=user_data)
     assert response.status_code == 201
     data = response.json()
     assert data["username"] == user_data["username"]
@@ -25,7 +25,7 @@ async def test_register_existing_username(async_client, create_user):
         "email": "another@example.com",
         "password": "Password123!"
     }
-    response = await async_client.post("/users/register", json=user_data)
+    response = await async_client.post("/auth/users/register", json=user_data)
     assert response.status_code == 400
     assert response.json()["detail"] == "Username or email already registered"
 
@@ -37,7 +37,7 @@ async def test_register_existing_email(async_client, create_user):
         "email": "testuser@example.com",  # Already created in create_user fixture
         "password": "Password123!"
     }
-    response = await async_client.post("/users/register", json=user_data)
+    response = await async_client.post("/auth/users/register", json=user_data)
     assert response.status_code == 400
     assert response.json()["detail"] == "Username or email already registered"
 
@@ -49,6 +49,6 @@ async def test_register_invalid_password(async_client):
         "email": "weak@example.com",
         "password": "weak"  # Does not meet complexity requirements
     }
-    response = await async_client.post("/users/register", json=user_data)
+    response = await async_client.post("/auth/users/register", json=user_data)
     assert response.status_code == 422  # Unprocessable Entity
     assert "Password must be at least 8 characters long" in response.text
