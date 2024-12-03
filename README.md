@@ -37,7 +37,12 @@ The application consists of two main microservices:
 - **Docker:** Ensure Docker is installed and running.
 - **kubectl**
 - **Kind**
-- **Git LFS:** Ensure Git LFS is downloaded, run:
+- **Python 3.9**
+- **Git LFS:** Ensure Git LFS is downloaded and configured
+    sudo apt update
+    sudo apt install -y git-lfs
+    *Initialize git lfs in environment*
+    git lfs install
 
   ```bash
   sudo apt install git-lfs
@@ -49,6 +54,7 @@ The application consists of two main microservices:
 
 ```bash
 git clone https://github.com/5CCSACCA/coursework-rebal-akar
+cd coursework
 cd app
 ```
 
@@ -57,6 +63,8 @@ cd app
 ```bash
 make all
 ```
+
+If make is not present in your system download it.
 
 To check status of pods:
 
@@ -68,7 +76,7 @@ kubectl get pods -n hatespeech
 
 Access authentication service via: [http://localhost/auth/docs](http://localhost/auth/docs)  
 Access prediction service via: [http://localhost/predict/docs](http://localhost/predict/docs)  
-Access Prometheus UI via: [http://localhost/](http://localhost/)
+Access Prometheus UI via: [http://localhost/]
 
 #### Authentication Service:
 
@@ -101,15 +109,10 @@ Access Prometheus UI via: [http://localhost/](http://localhost/)
 **Login User**
 
 - **Endpoint:** `POST /auth/users/login`
-- **Description:** Authenticate a user and receive a JWT token. Password must include digit, special character, uppercase and lowercase letter. Must be 8 characters long.
+- **Description:** Authenticate a user and receive a JWT token. Password must include digit, special character, uppercase and lowercase letter. Must be 8 characters long. In the input 
 - **Request Body:**
 
-  ```json
-  {
-    "username": "johndoe",
-    "password": "Password123!"
-  }
-  ```
+Ensure " " are NOT added. For example if you registered with "test", in login username simply add test. 
 
 - **Response:**
 
@@ -214,7 +217,7 @@ pytest
 
 ### Monitoring and Logging
 
-**Prometheus:** At [http://localhost/](http://localhost/), you can access various parameters on your pods
+**Prometheus:** At [http://localhost/], you can access various parameters on your pods
 
 **Logging:** To access logs
 
@@ -230,5 +233,4 @@ To view logs from all containers:
 
 ```bash
 kubectl logs --all-containers=true -n hatespeech
-```
 ```
