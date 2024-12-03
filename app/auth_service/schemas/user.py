@@ -1,4 +1,9 @@
-# schemas/user.py
+"""
+User Schemas
+
+This module defines the Pydantic models for user data structures used in the Authentication Service.
+"""
+
 from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, validator, Field

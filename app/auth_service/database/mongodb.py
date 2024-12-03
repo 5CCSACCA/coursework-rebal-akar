@@ -26,7 +26,8 @@ async def connect_to_mongo():
         # Create indexes for user collection
         await mongodb.db.users.create_index("username", unique=True)
         await mongodb.db.users.create_index("email", unique=True)
-
+        await mongodb.db.users.create_index("user_id", unique=True)  
+        
         # Create index for predictions collection
         await mongodb.db.predictions.create_index("user_id")
 

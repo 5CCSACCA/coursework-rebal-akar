@@ -57,7 +57,7 @@ async def async_client_fixture():
 def override_get_current_user():
     """Override the get_current_user dependency to return a mock user."""
     async def mock_get_current_user(token: str = None):
-        return {"username": "testuser", "_id": "testuserid"}
+        return {"username": "testuser", "_id":"testuserid","user_id": "testuserid"}
 
     app.dependency_overrides[get_current_user] = mock_get_current_user
     yield

@@ -137,7 +137,7 @@ async def predict(
         # Count total predictions after insertion
         try:
             total_predictions = await mongodb.db.predictions.count_documents(
-                {"user_id": str(current_user["_id"])}
+                {"user_id": current_user["user_id"]}
             )
             logger.debug(f"User '{username}' has a total of {total_predictions} predictions.")
         except Exception as e:
@@ -150,7 +150,7 @@ async def predict(
 
             try:
                 oldest_predictions = await mongodb.db.predictions.find(
-                    {"user_id": str(current_user["_id"])}
+                    {"user_id": current_user["user_id"]}
                 ).sort("created_at", ASCENDING).limit(excess).to_list(length=excess)
 
                 oldest_ids = [prediction["_id"] for prediction in oldest_predictions]
@@ -195,6 +195,7 @@ async def get_user_predictions(
 ):
     username = current_user["username"]
     user_id = current_user["user_id"]
+
     logger.info(f"User '{username}' requested to retrieve predictions with skip={skip}, limit={limit}.")
     
     

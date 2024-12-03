@@ -50,7 +50,6 @@ async def register(user: UserCreate):
         
         
         logger.debug(f"User dict before assignment: {user_dict}")
-        user_dict["user_id"] = user_id
         user_dict["hashed_password"] = hashed_password
         user_dict.pop("password")
         user_dict["created_at"] = datetime.utcnow()
