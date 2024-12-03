@@ -1,4 +1,9 @@
-#ml_model/model.py
+"""
+Machine Learning Model Utilities
+
+This module loads a pre-trained DistilBERT model for sequence classification
+and provides functionality for making predictions on input texts.
+"""
 import torch
 import logging
 from transformers import DistilBertForSequenceClassification, DistilBertTokenizerFast
@@ -17,7 +22,6 @@ model=torch.load(model_path, map_location=device)
 model.to(device)
 model.eval()
 
-# Label mapping
 label_mapping = {
     0: "Neutral",
     1: "Offensive",
@@ -25,6 +29,18 @@ label_mapping = {
 }
 
 async def predict_text(texts: List[str]) -> List[Dict]:
+    """
+    Predict the sentiment of input texts.
+
+    Args:
+        texts (List[str]): A list of input texts to analyze.
+
+    Returns:
+        List[Dict]: A list of prediction results, including probabilities and labels.
+
+    Raises:
+        Exception: If prediction fails due to an error.
+    """
     
     inputs = tokenizer(texts, return_tensors="pt", truncation=True, padding=True)
     inputs = {k: v.to(device) for k, v in inputs.items()}

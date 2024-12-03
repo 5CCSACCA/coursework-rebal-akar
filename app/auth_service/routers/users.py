@@ -1,4 +1,9 @@
-# auth_service/routers/users.py
+"""
+User Management Router
+
+This module handles user registration and authentication endpoints for the Authentication Service.
+
+"""
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -62,11 +67,15 @@ async def register(user: UserCreate):
     response_model=Token,
     summary="User login",
     description="""
-    Authenticate your user by providing a valid username and password.
+    Ensure username and password DO NOT include " " , for example if you registered as "test" due to JSON schema simply input test for user login instead.
 
-    Upon successful authentication, returns a JWT access token that must be included in the `Authorization` header for protected endpoints.
+    Authenticate the user by providing a valid username and password.
 
-    The JWT access token will be given to you, simply go to http://localhost/prediction/docs to perform predictions.
+    Upon successful authentication, this endpoint returns a JWT access token. 
+
+    The JWT token must be included in the `Authorization` header with the prefix `Bearer` when making requests to protected endpoints. 
+
+    To use the authenticated services, copy the token provided and include it in requests or authorize via the Swagger UI. For example, you can visit the prediction service documentation at `http://localhost/predict/docs` to perform predictions.
 
     """
 )
@@ -88,7 +97,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             )
         
         if not verify_password(form_data.password, user["hashed_password"]):
-            logger.warning(f"Login failed: Incorrect password for user '{username}'.")            # Increment failed login attempts
+            logger.warning(f"Login failed: Incorrect password for user '{username}'.")  # Increment failed login attempts
 
             failed_attempts = user.get("failed_login_attempts", 0) + 1
             update_data = {"failed_login_attempts": failed_attempts}

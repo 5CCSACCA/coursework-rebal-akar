@@ -1,4 +1,11 @@
-# prediction_service/database/mongodb.py
+"""
+MongoDB Connection
+
+This module manages the connection to MongoDB database uses Motor for asynchronous operations.
+
+"""
+
+
 import motor.motor_asyncio
 import logging
 from core.config import settings

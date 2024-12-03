@@ -25,6 +25,7 @@ app = FastAPI(
 async def root():
     return {"message": "Welcome to the Authentication Service, proceed to http://localhost/auth/docs"}
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
@@ -61,6 +62,7 @@ formatter = JsonFormatter()
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+#Define Prometheus metrics
 REQUEST_COUNT = Counter('auth_service_request_count', 'Total HTTP requests to Auth Service')
 REQUEST_LATENCY = Histogram('auth_service_request_latency_seconds', 'Latency of HTTP requests to Auth Service')
 EXCEPTION_COUNT = Counter('auth_service_exception_count', 'Total exceptions in Auth Service')

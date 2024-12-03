@@ -1,4 +1,11 @@
-# db/mongodb.py
+"""
+MongoDB Connection
+
+This module manages the connection to MongoDB database uses Motor for asynchronous operations.
+
+"""
+
+
 import motor.motor_asyncio
 from core.config import settings
 import logging
@@ -20,7 +27,7 @@ async def connect_to_mongo():
         await mongodb.db.users.create_index("username", unique=True)
         await mongodb.db.users.create_index("email", unique=True)
 
-        # Create index for predictions collection on user_id
+        # Create index for predictions collection
         await mongodb.db.predictions.create_index("user_id")
 
         logger.info("Connected to MongoDB and indexes created successfully.")

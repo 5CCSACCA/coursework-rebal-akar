@@ -1,4 +1,8 @@
-# prediction_service/routers/predict.py
+"""
+Prediction Router for Prediction Service
+
+This module handles prediction requests and retrieval of past predictions.
+"""
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from schemas.prediction import (
@@ -73,6 +77,19 @@ MAX_PREDICTIONS_PER_USER = 100  # Maximum predictions allowed per user
 async def predict(
     request: PredictionRequest, current_user: dict = Depends(get_current_user)
 ):
+    """
+    Make predictions on a batch of input texts.
+
+    Args:
+        request (PredictionRequest): The prediction request containing input texts.
+        current_user (dict, optional): The authenticated user.
+
+    Returns:
+        BatchPredictionResponse: The prediction results and filtered hate/offensive tweets.
+
+    Raises:
+        HTTPException: If the input is invalid or if prediction processing fails.
+    """
     username = current_user["username"]
     logger.info(f"User '{username}' initiated a prediction request with {len(request.input_texts)} texts.")
     

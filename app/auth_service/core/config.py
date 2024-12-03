@@ -1,4 +1,10 @@
-#core/config
+"""
+Configuration Setting
+
+Defines configuration setting for Authentication Service
+
+"""
+
 from pydantic import BaseSettings
 from typing import Optional
 

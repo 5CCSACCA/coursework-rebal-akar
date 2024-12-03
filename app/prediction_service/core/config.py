@@ -1,4 +1,6 @@
-# prediction_service/core/config.py
+"""
+Configuration Setting for Prediciton Service
+"""
 from pydantic import BaseSettings
 
 class Settings(BaseSettings):

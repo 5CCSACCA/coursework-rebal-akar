@@ -1,4 +1,9 @@
-# prediction_service/auth/auth.py
+"""
+Authentication Utilities for Prediction Service
+
+This module provides utilities for decoding JWT tokens and validating
+authenticated users within the Prediction Service.
+"""
 import logging
 from fastapi import Depends, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -15,7 +20,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost/auth/users/login
 
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
-
+#Validate and retrieve current user from JWT token
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -32,6 +37,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError as e:
         print(f"JWTError: {e}")
         raise credentials_exception
+    
+    
+    #retrieve user from database
     user = await mongodb.db.users.find_one({"username": token_data.username})
     if user is None:
         logger.warning(f"User not found in database: {token_data.username}")
