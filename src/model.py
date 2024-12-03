@@ -3,7 +3,6 @@ import torch
 from torch.utils.data import DataLoader, Dataset as TorchDataset
 from transformers import (
     DistilBertForSequenceClassification,
-    DistilBertTokenizerFast,
     get_linear_schedule_with_warmup
 )
 from torch.optim import AdamW
@@ -11,10 +10,12 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc
 import random
 import numpy as np
 import argparse
+import itertools
 import mlflow
 import mlflow.pytorch
-import itertools
 from torch.cuda.amp import GradScaler, autocast
+from mlflow.tracking import MlflowClient
+
 
 # Set random seeds for reproducibility
 def set_seed(seed):
@@ -26,6 +27,13 @@ def set_seed(seed):
 
 set_seed(42)
 
+# Define class labels
+CLASS_NAMES = {
+    0: "neutral",
+    1: "offensive",
+    2: "hate_speech"
+}
+
 # Custom PyTorch Dataset
 class HateSpeechDataset(TorchDataset):
     def __init__(self, encodings, labels):
@@ -33,9 +41,9 @@ class HateSpeechDataset(TorchDataset):
         self.labels = labels
 
     def __getitem__(self, idx):
-        # Convert each encoding into a dictionary of tensors
-        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
-        item['labels'] = torch.tensor(self.labels[idx])
+        # No need to wrap tensors again
+        item = {key: val[idx] for key, val in self.encodings.items()}
+        item['labels'] = self.labels[idx]
         return item
 
     def __len__(self):
@@ -56,12 +64,11 @@ def load_tokenized_data(tokenized_data_dir='tokenized'):
 
     return train_dataset, val_dataset, test_dataset
 
-# Initialize DistilBERT model and tokenizer
-def initialize_model(device):
-    # Load pre-trained DistilBERT model for sequence classification
+# Initialize DistilBERT model
+def initialize_model(device, num_labels=3):
     model = DistilBertForSequenceClassification.from_pretrained(
         "distilbert-base-uncased",
-        num_labels=3  # Adjust based on your classification task
+        num_labels=num_labels
     )
     model.to(device)
     print(f"Using device: {device}")
@@ -71,34 +78,35 @@ def initialize_model(device):
 def evaluate(model, dataloader, device):
     model.eval()
     predictions, true_labels, probabilities = [], [], []
-
+    
     with torch.no_grad():
         for batch in dataloader:
             # Move inputs and labels to the device
             inputs = {key: val.to(device) for key, val in batch.items() if key != 'labels'}
             labels = batch['labels'].to(device)
-
+    
             # Forward pass
             outputs = model(**inputs)
             logits = outputs.logits
-
+    
             # Get predictions
             probs = torch.softmax(logits, dim=1)
             preds = torch.argmax(logits, dim=1).detach().cpu().numpy()
             label_ids = labels.cpu().numpy()
             probs = probs.detach().cpu().numpy()
-
+    
             predictions.extend(preds)
             true_labels.extend(label_ids)
             probabilities.extend(probs)
-
-    # Calculate metrics
+    
+    # Calculate overall metrics
     acc = accuracy_score(true_labels, predictions)
-    precision, recall, f1, _ = precision_recall_fscore_support(
-        true_labels, predictions, average='weighted'
+    
+    # Calculate per-class metrics
+    precision, recall, f1, support = precision_recall_fscore_support(
+        true_labels, predictions, labels=[0, 1, 2], average=None
     )
-
-    # ROC-AUC for multiclass
+    
     roc_auc = None
     if len(set(true_labels)) > 2:
         try:
@@ -107,8 +115,15 @@ def evaluate(model, dataloader, device):
             pass  # Handle case where ROC-AUC can't be calculated
     else:
         roc_auc = roc_auc_score(true_labels, [prob[1] for prob in probabilities])
-
-    return acc, precision, recall, f1, roc_auc
+    
+    per_class_metrics = {}
+    for idx, cls in CLASS_NAMES.items():
+        per_class_metrics[f"precision_{cls}"] = precision[idx]
+        per_class_metrics[f"recall_{cls}"] = recall[idx]
+        per_class_metrics[f"f1_{cls}"] = f1[idx]
+        per_class_metrics[f"support_{cls}"] = support[idx]
+    
+    return acc, per_class_metrics, roc_auc
 
 # Training and Evaluation Function with Early Stopping
 def train_and_evaluate(args, train_dataset, val_dataset, test_dataset, patience=3):
@@ -122,7 +137,7 @@ def train_and_evaluate(args, train_dataset, val_dataset, test_dataset, patience=
     model = initialize_model(device)
 
     # Define optimizer and scheduler
-    optimizer = AdamW(model.parameters(), lr=args.learning_rate, eps=1e-8)
+    optimizer = AdamW(model.parameters(), lr=args.learning_rate, eps=1e-8, weight_decay=args.weight_decay)
     total_steps = len(train_loader) // args.accumulation_steps * args.epochs
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
@@ -140,6 +155,7 @@ def train_and_evaluate(args, train_dataset, val_dataset, test_dataset, patience=
     for epoch in range(args.epochs):
         model.train()
         total_loss = 0
+        total_val_loss = 0
         optimizer.zero_grad()
 
         print(f"\nEpoch {epoch + 1}/{args.epochs}")
@@ -157,8 +173,6 @@ def train_and_evaluate(args, train_dataset, val_dataset, test_dataset, patience=
             # Backward pass
             scaler.scale(loss).backward()
             total_loss += loss.item()
-
-            
 
             # Update parameters every 'accumulation_steps' batches
             if (step + 1) % args.accumulation_steps == 0 or (step + 1) == len(train_loader):
@@ -182,48 +196,85 @@ def train_and_evaluate(args, train_dataset, val_dataset, test_dataset, patience=
         mlflow.log_metric("avg_train_loss", avg_train_loss, step=epoch)
 
         # Evaluate on validation set
-        val_acc, val_precision, val_recall, val_f1, val_roc_auc = evaluate(model, val_loader, device)
-        print(f"Validation Accuracy: {val_acc:.4f}, F1 Score: {val_f1:.4f}")
+        val_acc, val_per_class_metrics, val_roc_auc = evaluate(model, val_loader, device)
+        print(f"Validation Accuracy: {val_acc:.4f}")
 
-        # Log validation metrics
+        # Print per-class metrics
+        for metric_name, metric_value in val_per_class_metrics.items():
+            print(f"Validation {metric_name}: {metric_value:.4f}")
+
+        # Calculate validation loss
+        model.eval()
+        with torch.no_grad():
+            for batch in val_loader:
+                inputs = {key: val.to(device) for key, val in batch.items() if key != 'labels'}
+                labels = batch['labels'].to(device)
+                outputs = model(**inputs, labels=labels)
+                val_loss = outputs.loss
+                total_val_loss += val_loss.item()
+        avg_val_loss = total_val_loss / len(val_loader)
+        print(f"Average Validation Loss: {avg_val_loss:.4f}")
+
+        # Log validation loss and metrics
+        mlflow.log_metric("avg_val_loss", avg_val_loss, step=epoch)
         mlflow.log_metric("val_accuracy", val_acc, step=epoch)
-        mlflow.log_metric("val_precision", val_precision, step=epoch)
-        mlflow.log_metric("val_recall", val_recall, step=epoch)
-        mlflow.log_metric("val_f1", val_f1, step=epoch)
         if val_roc_auc is not None:
             mlflow.log_metric("val_roc_auc", val_roc_auc, step=epoch)
+        
+        # Log per-class metrics to MLflow
+        for metric_name, metric_value in val_per_class_metrics.items():
+            mlflow.log_metric(metric_name, metric_value, step=epoch)
 
-        # Early Stopping Logic
-        if val_f1 > best_f1:
-            best_f1 = val_f1
+        # Early Stopping Logic based on F1-score
+        current_f1 = val_per_class_metrics.get("f1_hate_speech", 0.0)
+        if current_f1 > best_f1:
+            best_f1 = current_f1
             best_model_state = model.state_dict()
-            print(f"New best model found at epoch {epoch + 1} with F1 Score: {best_f1:.4f}")
+            print(f"New best model found at epoch {epoch + 1} with F1 Score (hate_speech): {best_f1:.4f}")
             torch.save(best_model_state, "best_model.pt")  # Save the best model
-            patience_counter = 0  # Reset patience counter
+            patience_counter = 0  
         else:
             patience_counter += 1
             print(f"No improvement in F1 score for {patience_counter} epoch(s).")
             if patience_counter >= patience:
                 print("Early stopping triggered.")
-                break  # Exit the training loop
+                break  
 
     # Load the best model state
     model.load_state_dict(best_model_state)
 
     # Final Evaluation on Test Set
-    test_acc, test_precision, test_recall, test_f1, test_roc_auc = evaluate(model, test_loader, device)
-    print(f"\nTest Accuracy: {test_acc:.4f}, F1 Score: {test_f1:.4f}")
+    test_acc, test_per_class_metrics, test_roc_auc = evaluate(model, test_loader, device)
+    print(f"\nTest Accuracy: {test_acc:.4f}")
+
+    # Print per-class metrics for test set
+    for metric_name, metric_value in test_per_class_metrics.items():
+        print(f"Test {metric_name}: {metric_value:.4f}")
+
+    # Calculate test loss
+    model.eval()
+    total_test_loss = 0
+    with torch.no_grad():
+        for batch in test_loader:
+            inputs = {key: val.to(device) for key, val in batch.items() if key != 'labels'}
+            labels = batch['labels'].to(device)
+            outputs = model(**inputs, labels=labels)
+            test_loss = outputs.loss
+            total_test_loss += test_loss.item()
+    avg_test_loss = total_test_loss / len(test_loader)
+    print(f"Average Test Loss: {avg_test_loss:.4f}")
 
     # Log test metrics
     mlflow.log_metric("test_accuracy", test_acc)
-    mlflow.log_metric("test_precision", test_precision)
-    mlflow.log_metric("test_recall", test_recall)
-    mlflow.log_metric("test_f1", test_f1)
     if test_roc_auc is not None:
         mlflow.log_metric("test_roc_auc", test_roc_auc)
-
+    
+    # Log per-class metrics for test set
+    for metric_name, metric_value in test_per_class_metrics.items():
+        mlflow.log_metric(metric_name.replace("test_", "test_"), metric_value)
+    
     # Save the best model with a unique name
-    model_save_path = f"model_lr{args.learning_rate}_bs{args.batch_size}_epochs{args.epochs}_accum{args.accumulation_steps}.pt"
+    model_save_path = f"model_lr{args.learning_rate}_wd{args.weight_decay}_bs{args.batch_size}_epochs{args.epochs}_accum{args.accumulation_steps}.pt"
     torch.save(best_model_state, model_save_path)
     print(f"Best model saved to {model_save_path}")
 
@@ -237,38 +288,78 @@ if __name__ == "__main__":
     parser.add_argument('--tokenized_data_dir', type=str, default='tokenized', help='Directory containing tokenized data')
     args = parser.parse_args()
 
-    # Initialize MLflow experiment
+    # Set the Tracking URI first
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+
     mlflow.set_experiment("DistilBERT_HateSpeech_Classification")
 
-    # Load datasets once
     train_dataset, val_dataset, test_dataset = load_tokenized_data(tokenized_data_dir=args.tokenized_data_dir)
     print(f"Training Dataset Size: {len(train_dataset)}")
     print(f"Validation Dataset Size: {len(val_dataset)}")
     print(f"Test Dataset Size: {len(test_dataset)}")
 
     # Define hyperparameter grid
-    learning_rates = [1e-5, 2e-5, 3e-5, 4e-5]
-    batch_sizes = [8, 16]
-    epochs_list = [3, 5, 8,10]
-    accumulation_steps_list = [1, 2]
+    learning_rates = [3e-5, 4e-5]
+    weight_decays = [0.0, 0.01]
+    batch_size = 9
+    accumulation_steps = 2
+    epochs = 9
+
+    # Initialize variables to track the best overall run
+    best_f1_overall = 0.0
+    best_run_id = None
+
+    # Initialize MLflow client for model registry
+    client = MlflowClient()
 
     # Loop over hyperparameter combinations
-    for lr, bs, epochs, accum_steps in itertools.product(learning_rates, batch_sizes, epochs_list, accumulation_steps_list):
+    for lr, wd in itertools.product(learning_rates, weight_decays):
         # Update args with current hyperparameters
         args.learning_rate = lr
-        args.batch_size = bs
+        args.weight_decay = wd
+        args.batch_size = batch_size
+        args.accumulation_steps = accumulation_steps
         args.epochs = epochs
-        args.accumulation_steps = accum_steps
 
         # Start MLflow run
-        with mlflow.start_run():
-            # Log hyperparameters
+        with mlflow.start_run() as run:
             mlflow.log_param("learning_rate", lr)
-            mlflow.log_param("batch_size", bs)
+            mlflow.log_param("weight_decay", wd)
+            mlflow.log_param("batch_size", batch_size)
             mlflow.log_param("epochs", epochs)
-            mlflow.log_param("accumulation_steps", accum_steps)
+            mlflow.log_param("accumulation_steps", accumulation_steps)
 
-            print(f"\nStarting run with lr={lr}, batch_size={bs}, epochs={epochs}, accumulation_steps={accum_steps}")
+            print(f"\nStarting run with lr={lr}, weight_decay={wd}, batch_size={batch_size}, epochs={epochs}, accumulation_steps={accumulation_steps}")
 
             # Call the training and evaluation function with early stopping
             train_and_evaluate(args, train_dataset, val_dataset, test_dataset, patience=3)
+
+            # After training, check if this run has the best F1 score
+            run_info = run.info
+            run_metrics = mlflow.get_run(run_info.run_id).data.metrics
+            run_f1 = run_metrics.get("f1_hate_speech", 0.0)
+
+            if run_f1 > best_f1_overall:
+                best_f1_overall = run_f1
+                best_run_id = run_info.run_id
+
+    # After all runs, register the best overall model to Production
+    if best_run_id:
+        best_model_uri = f"runs:/{best_run_id}/model"
+        model_name = "HateSpeechModel"
+
+        try:
+            # Register the model
+            model_details = client.register_model(best_model_uri, model_name)
+            print(f"Best Model registered: {model_details.name} version {model_details.version}")
+
+            # Transition the best model to Production
+            client.transition_model_version_stage(
+                name=model_details.name,
+                version=model_details.version,
+                stage="Production",
+                archive_existing_versions=True
+            )
+            print(f"Best Model version {model_details.version} transitioned to Production")
+        except Exception as e:
+            print(f"Failed to register best model: {e}")

@@ -18,3 +18,7 @@ data/
 
 #mlflow
 mlruns/
+
+src/tokenized
+src/models/
+mlartifacts/
