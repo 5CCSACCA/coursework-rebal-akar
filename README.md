@@ -1,4 +1,4 @@
-```markdown
+
 ## Project Overview
 
 HateSpeech-Offensive SaaS is a scalable Software-as-a-Service (SaaS) application designed to detect hate speech and offensive language in tweets. Utilizing machine learning, specifically a fine-tuned DistilBERT model, the service provides RESTful APIs for user authentication and batch prediction of tweet sentiments. The application is containerized and deployed using Kubernetes, ensuring high availability and scalability.
