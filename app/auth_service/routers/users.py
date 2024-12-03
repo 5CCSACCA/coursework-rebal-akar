@@ -4,6 +4,7 @@ User Management Router
 This module handles user registration and authentication endpoints for the Authentication Service.
 
 """
+from uuid import uuid4
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -41,12 +42,20 @@ async def register(user: UserCreate):
         if existing_user:
             logger.warning(f"Registration failed: Username or email already registered ({user.username}, {user.email})")
             raise HTTPException(status_code=400, detail="Username or email already registered")
-        hashed_password = get_password_hash(user.password)
         user_dict = user.dict()
+        user_id= str(uuid4())
+        logger.debug(f"Generated user_id: {user_id}")
+        user_dict["user_id"] = user_id
+        hashed_password = get_password_hash(user.password)
+        
+        
+        logger.debug(f"User dict before assignment: {user_dict}")
+        user_dict["user_id"] = user_id
         user_dict["hashed_password"] = hashed_password
         user_dict.pop("password")
         user_dict["created_at"] = datetime.utcnow()
         user_dict["updated_at"] = datetime.utcnow()
+
         
         result = await mongodb.db.users.insert_one(user_dict)
         user_out = UserOut(**user_dict, id=str(result.inserted_id))

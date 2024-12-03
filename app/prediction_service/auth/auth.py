@@ -5,7 +5,7 @@ This module provides utilities for decoding JWT tokens and validating
 authenticated users within the Prediction Service.
 """
 import logging
-from fastapi import Depends, HTTPException, Depends
+from fastapi import Depends, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from core.config import settings

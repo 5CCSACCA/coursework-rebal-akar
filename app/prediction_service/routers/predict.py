@@ -114,7 +114,7 @@ async def predict(
     predictions_to_insert = []
     for result in prediction_results:
         prediction_data = {
-            "user_id": str(current_user["_id"]),
+            "user_id": current_user["user_id"],
             "input_text": result["input_text"],
             "prediction_result": {
                 "prediction": result["prediction"],
@@ -194,9 +194,10 @@ async def get_user_predictions(
     current_user: dict = Depends(get_current_user),
 ):
     username = current_user["username"]
+    user_id = current_user["user_id"]
     logger.info(f"User '{username}' requested to retrieve predictions with skip={skip}, limit={limit}.")
     
-    user_id = str(current_user["_id"])
+    
     try:
         predictions_cursor = (
             mongodb.db.predictions.find({"user_id": user_id})
