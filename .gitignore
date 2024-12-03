@@ -13,7 +13,10 @@ venv/
 
 data/raw_data/
 data/processed/
+data/tokenized/
 
 mlruns/
 
 
+.coverage
+load-test.js

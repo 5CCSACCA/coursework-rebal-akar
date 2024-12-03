@@ -29,3 +29,18 @@ spec:
                 name: prometheus
                 port:
                   number: 9090
+          - path: "/auth/metrics"
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8000
+          - path: /predict/metrics
+            pathType: Prefix
+            backend:
+              service:
+                name: prediction-service
+                port:
+                  number: 8000
+
