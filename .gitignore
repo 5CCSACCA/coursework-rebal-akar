@@ -8,3 +8,21 @@ venv/
 
 # IDE settings
 .vscode/
+
+# Ignore data files
+
+data/raw_data/
+data/raw_data/processed
+data/processed/
+data/ 
+
+
+#mlflow
+mlruns/
+
+src/tokenized
+src/models/
+mlartifacts/
+
+app/auth_service/.coverage
+load-test.js
