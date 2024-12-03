@@ -196,6 +196,7 @@ async def get_user_predictions(
     username = current_user["username"]
     user_id = current_user["user_id"]
 
+
     logger.info(f"User '{username}' requested to retrieve predictions with skip={skip}, limit={limit}.")
     
     
@@ -208,11 +209,14 @@ async def get_user_predictions(
         )
         predictions = []
         async for prediction in predictions_cursor:
+            prediction_result_data = prediction["prediction_result"]
+
+            prediction_result_data["input_text"] = prediction.get("input_text", "No input text available")
             prediction_out = PredictionOut(
                 id=str(prediction["_id"]),
                 user_id=prediction["user_id"],
-                input_text=prediction["input_text"],
-                prediction_result=PredictionResult(**prediction["prediction_result"]),
+                input_text=prediction.get("input_text", "No input text available"),
+                prediction_result=PredictionResult(**prediction_result_data),                
                 created_at=prediction["created_at"],
             )
             predictions.append(prediction_out)
