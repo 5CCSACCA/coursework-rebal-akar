@@ -3,6 +3,8 @@
 
 HateSpeech-Offensive SaaS is a scalable Software-as-a-Service (SaaS) application designed to detect hate speech and offensive language in tweets. Utilizing machine learning, specifically a fine-tuned DistilBERT model, the service provides RESTful APIs for user authentication and batch prediction of tweet sentiments. The application is containerized and deployed using Kubernetes, ensuring high availability and scalability.
 
+If you would like to explore the jupyter notebooks to overview the data collection process ensure you install requirements.txt in the root folder.
+
 ## Features
 
 - **User Authentication:** Secure user registration and login with JWT-based authentication.
@@ -39,14 +41,15 @@ The application consists of two main microservices:
 - **Kind**
 - **Python 3.9**
 - **Git LFS:** Ensure Git LFS is downloaded and configured
+   ```bash 
     sudo apt update
+
     sudo apt install -y git-lfs
-    *Initialize git lfs in environment*
+    
     git lfs install
 
-  ```bash
-  sudo apt install git-lfs
-  ```
+    git lfs pull
+    ```
 
 ## Deployment Instructions
 

@@ -1,4 +1,3 @@
-# auth_service/main.py
 import sys
 import logging
 import time

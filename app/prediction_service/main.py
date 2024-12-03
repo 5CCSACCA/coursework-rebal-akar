@@ -1,4 +1,3 @@
-# prediction_service/main.py
 import logging
 import sys
 import time
