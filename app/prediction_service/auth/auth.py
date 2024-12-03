@@ -15,7 +15,7 @@ from database.mongodb import mongodb
 logger = logging.getLogger("prediction_service.auth.auth")
 
 # Update tokenUrl to point to the auth_service's login endpoint
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8000/auth/users/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost/auth/users/login")
 
 
 SECRET_KEY = settings.SECRET_KEY
